@@ -92,8 +92,9 @@ Anyway, if you still want to manage sessions by yourself, you can still call the
 ###Take a look at the samples...###
 
 The folder "Sample" contains two example files:
-1. Cache.php provides an example of use __with cached sessions__
-2. NoCache.php provides an example of use __witout session caching__
+
+1.	Cache.php provides an example of use __with cached sessions__
+2.	NoCache.php provides an example of use __witout session caching__
 
 Don't forget to set your credentials on the following lines:
 
@@ -103,8 +104,9 @@ Don't forget to set your credentials on the following lines:
 ##Detailed API##
 
 The module is composed of two classes:
-1. __SmiteAPIHelper__, an abstract class defining a set of __static methods and properties__.
-2. __SmiteAPISession__, a class for __session management__ and load/save into a cache
+
+1.	__SmiteAPIHelper__, an abstract class defining a set of __static methods and properties__.
+2.	__SmiteAPISession__, a class for __session management__ and load/save into a cache
 
 ###SmiteAPIHelper###
 	

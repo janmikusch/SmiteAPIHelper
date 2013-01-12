@@ -19,16 +19,18 @@ For further information on SmiteAPIHelper, how it works and how to use it in you
 
 First version!
 Including helper functions for each Smite API request:
-1. createsession
-2. getitems
-3. getplayer
-4. getmatchdetails
-5. getmatchhistory
-6. getqueuestats
-7. gettopranked
-8. getdataused
-9. getgods
-10. ping
+
+1.	createsession
+2.	getitems
+3.	getplayer
+4.	getmatchdetails
+5.	getmatchhistory
+6.	getqueuestats
+7.	gettopranked
+8.	getdataused
+9.	getgods
+10.	ping
+
 Automatic session management and caching, and easy-to-set-credentials and preferred response format.
 
 
