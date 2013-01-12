@@ -79,6 +79,10 @@ The same principle applies for session saving, as you can see in the following p
 
 The _saveToCache_ function returns a boolean indicating if the session was successfully cached, allowing you to handle error cases.
 
+_Additional Note_: your cache file should be only readable by the server (chmod 0400) for security purposes.
+
+
+
 This whole system was made to simplify the sessions management, and should be all what you need in order to send requests without being bothered by sessions again.
 Anyway, if you still want to manage sessions by yourself, you can still call the function _createSession_ that will execute a createsession request to the Smite API without automatically setting up the session.
 	
