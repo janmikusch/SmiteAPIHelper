@@ -1,10 +1,14 @@
 <?php
 
+require_once(__DIR__."/SmiteAPISession.php");
+
 /*
  * SmiteAPIHelper
  * by Chorizorro
  * v1.0
  * 2013-01-12
+ * 
+ * Set of useful methods and attributes to manage with Smite API requests
  */
 abstract class SmiteAPIHelper {
 	
@@ -26,10 +30,8 @@ abstract class SmiteAPIHelper {
 	
 	// Response format preference
 	public static $_format = SmiteAPIHelper::SMITE_API_FORMAT_XML;
-	// Smite API access session id
-	private static $_sessionId = null;
-	// Timeout for the recorded session ID
-	private static $_sessionTimeout = null;
+	// Smite API session
+	private static $_session = null;
 	// Smite API DevId provided by Hi-Rez
 	private static $_devId = 0;
 	// Smite API AuthKey provided by Hi-Rez
@@ -40,19 +42,6 @@ abstract class SmiteAPIHelper {
 	// METHODS
 	//
 	
-	
-	// Defining a getter for private members
-	public static function get($key) {
-		switch($key) {
-			case "sessionId":
-				return SmiteAPIHelper::$_sessionId;
-			case "sessionTimeout":
-				return SmiteAPIHelper::$_sessionTimeout;
-			default:
-				trigger_error (__CLASS__."::".__FUNCTION__." (".__LINE__.") Unkown key \"".  htmlspecialchars($key)."\" in getter", E_USER_WARNING);
-				return null;
-		}
-	}
 	
 	/*
 	 * Sets the credentials to use the API
@@ -102,59 +91,62 @@ abstract class SmiteAPIHelper {
 	}
 	
 	/*
-	 * Loads a session id and timeout
+	 * Sets a custom session into the helper
 	 * 
-	 * $sessionId: string containing hexadecimal figures only, corresponding to a session ID
-	 * $timeout: DateTime object on UTC timezone, corresponding to the time where the given sessionId will become invalid
+	 * $session: SmiteAPISession object which must be valid
 	 * 
 	 * Returns a boolean indicating if the session was successfully set
 	 */
-	public static function setSession($sessionId, $timeout) {
+	public static function setSession($session) {
 		// Checking parameters
-		$errors = 0;
-		$sessionIdType = gettype($sessionId);
-		// Checking sessionId
-		if($sessionIdType !== "string") {
-			trigger_error (__CLASS__."::".__FUNCTION__." (".__LINE__.") \$authKey must be a string ($sessionIdType given)", E_USER_ERROR);
-			$errors++;
+		if(!$session instanceof SmiteAPISession) {
+			trigger_error (__CLASS__."::".__FUNCTION__." (".__LINE__.") \$session must be a valid SmiteAPISession object", E_USER_ERROR);
+			return false;
 		}
-		// FIXME Not sure if sessionId is always supposed to be 32 chars long
-//		else if (!preg_match("/^[A-Z0-9]{32}$/i", $sessionId)) {
-//			trigger_error (__CLASS__."::".__FUNCTION__." (".__LINE__.") \$sessionId must contain 32 hexadecimal figures (\"".htmlspecialchars($authKey)."\" given)", E_USER_ERROR);
-//			$errors++;
-//		}
-		else if (!preg_match("/^[A-Z0-9]+$/i", $sessionId)) {
-			trigger_error (__CLASS__."::".__FUNCTION__." (".__LINE__.") \$sessionId must contain only hexadecimal figures (\"".htmlspecialchars($sessionId)."\" given)", E_USER_ERROR);
-			$errors++;
+		// Checking session state
+		switch($session->state) {
+			case SmiteAPISession::SESSION_STATE_VALID:
+				// Do nothing
+				break;
+			case SmiteAPISession::SESSION_STATE_UNSET:
+				trigger_error (__CLASS__."::".__FUNCTION__." (".__LINE__.") The session is not set", E_USER_WARNING);
+				break;
+			case SmiteAPISession::SESSION_STATE_TIMEDOUT:
+				trigger_error (__CLASS__."::".__FUNCTION__." (".__LINE__.") The session is outdated", E_USER_WARNING);
+				break;
+			default:
+				trigger_error (__CLASS__."::".__FUNCTION__." (".__LINE__.") Unknown session state", E_USER_WARNING);
+				break;
 		}
-		// Checking sessionId
-		if(!(isset($timeout) && $timeout instanceof DateTime)) {
-			trigger_error (__CLASS__."::".__FUNCTION__." (".__LINE__.") \$timeout must contain a valid unix timestamp (\"".htmlspecialchars($timeout)."\" given)", E_USER_ERROR);
-			$errors++;
-		}
-		else if($timeout <= new DateTime("now", new DateTimeZone("UTC"))) {
-			trigger_error (__CLASS__."::".__FUNCTION__." (".__LINE__.") The session is timed out", E_USER_WARNING);
-			$errors++;
-		}
-		// Exit the function if some parameters are invalid
-		if($errors) return false;
-		unset($sessionIdType, $errors);
 		// Set the session
-		SmiteAPIHelper::$_sessionId = $sessionId;
-		SmiteAPIHelper::$_sessionTimeout = $timeout;
+		SmiteAPIHelper::$_session = $session;
 		return true;
 	}
 	
-	// Getter 
+	/*
+	 * Gets the current session
+	 * 
+	 * Returns the current SmiteAPISession object
+	 */
+	public static function getSession() {
+		return SmiteAPIHelper::$_session;
+	}
 	
-	// Checking the credentials
+	/*
+	 * Send a createsession request
+	 * 
+	 * Returns the web-service response or null if an error occurred
+	 */
 	public static function createSession() {
+		// Checking the credentials
 		if(!(SmiteAPIHelper::$_devId && SmiteAPIHelper::$_authKey)) {
 			trigger_error (__CLASS__."::".__FUNCTION__." (".__LINE__.") Smite API Credentials must be set before any request", E_USER_ERROR);
 			return null;
 		}
+		// Checking if a signature could be created
 		if(($signature = SmiteAPIHelper::getSignature("createsession")) === null) return false;
-		$url = "createsession".SmiteAPIHelper::$_format."/".SmiteAPIHelper::$_devId."/$signature/".((new DateTime("now", new DateTimeZone("UTC")))->format("YmdHis"));
+		// Sending request
+		$url = "createsession".SmiteAPIHelper::$_format."/".SmiteAPIHelper::$_devId."/$signature/".SmiteAPIHelper::getNowTimestamp();
 		return SmiteAPIHelper::executeRequest($url);
 	}
 	
@@ -178,7 +170,8 @@ abstract class SmiteAPIHelper {
 		}
 		// Checking if a signature could be created
 		if(($signature = SmiteAPIHelper::getSignature("getitems")) === null) return false;
-		$url = "getitems".SmiteAPIHelper::$_format."/".SmiteAPIHelper::$_devId."/$signature/".SmiteAPIHelper::$_sessionId."/".((new DateTime("now", new DateTimeZone("UTC")))->format("YmdHis"))."/".$lang;
+		// Sending request
+		$url = "getitems".SmiteAPIHelper::$_format."/".SmiteAPIHelper::$_devId."/$signature/".SmiteAPIHelper::$_session->id."/".SmiteAPIHelper::getNowTimestamp()."/".$lang;
 		return SmiteAPIHelper::executeRequest($url);
 	}
 	
@@ -204,7 +197,8 @@ abstract class SmiteAPIHelper {
 		}
 		// Checking if a signature could be created
 		if(($signature = SmiteAPIHelper::getSignature("getplayer")) === null) return false;
-		$url = "getplayer".SmiteAPIHelper::$_format."/".SmiteAPIHelper::$_devId."/$signature/".SmiteAPIHelper::$_sessionId."/".((new DateTime("now", new DateTimeZone("UTC")))->format("YmdHis"))."/".$playerName;
+		// Sending request
+		$url = "getplayer".SmiteAPIHelper::$_format."/".SmiteAPIHelper::$_devId."/$signature/".SmiteAPIHelper::$_session->id."/".SmiteAPIHelper::getNowTimestamp()."/".$playerName;
 		return SmiteAPIHelper::executeRequest($url);
 	}
 	
@@ -236,7 +230,8 @@ abstract class SmiteAPIHelper {
 		}
 		// Checking if a signature could be created
 		if(($signature = SmiteAPIHelper::getSignature("getmatchdetails")) === null) return false;
-		$url = "getmatchdetails".SmiteAPIHelper::$_format."/".SmiteAPIHelper::$_devId."/$signature/".SmiteAPIHelper::$_sessionId."/".((new DateTime("now", new DateTimeZone("UTC")))->format("YmdHis"))."/".$mapId;
+		// Sending request
+		$url = "getmatchdetails".SmiteAPIHelper::$_format."/".SmiteAPIHelper::$_devId."/$signature/".SmiteAPIHelper::$_session->id."/".SmiteAPIHelper::getNowTimestamp()."/".$mapId;
 		return SmiteAPIHelper::executeRequest($url);
 	}
 	
@@ -262,7 +257,8 @@ abstract class SmiteAPIHelper {
 		}
 		// Checking if a signature could be created
 		if(($signature = SmiteAPIHelper::getSignature("getmatchhistory")) === null) return false;
-		$url = "getmatchhistory".SmiteAPIHelper::$_format."/".SmiteAPIHelper::$_devId."/$signature/".SmiteAPIHelper::$_sessionId."/".((new DateTime("now", new DateTimeZone("UTC")))->format("YmdHis"))."/".$playerName;
+		// Sending request
+		$url = "getmatchhistory".SmiteAPIHelper::$_format."/".SmiteAPIHelper::$_devId."/$signature/".SmiteAPIHelper::$_session->id."/".SmiteAPIHelper::getNowTimestamp()."/".$playerName;
 		return SmiteAPIHelper::executeRequest($url);
 	}
 	
@@ -298,7 +294,9 @@ abstract class SmiteAPIHelper {
 		}
 		// Checking if a signature could be created
 		if(($signature = SmiteAPIHelper::getSignature("getqueuestats")) === null) return false;
-		return SmiteAPIHelper::executeRequest("getqueuestats".SmiteAPIHelper::$_format."/".SmiteAPIHelper::$_devId."/$signature/".SmiteAPIHelper::$_sessionId."/".((new DateTime("now", new DateTimeZone("UTC")))->format("YmdHis"))."/".$playerName."/".$queue);
+		// Sending request
+		$url = "getqueuestats".SmiteAPIHelper::$_format."/".SmiteAPIHelper::$_devId."/$signature/".SmiteAPIHelper::$_session->id."/".SmiteAPIHelper::getNowTimestamp()."/".$playerName."/".$queue;
+		return SmiteAPIHelper::executeRequest($url);
 	}
 	
 	/*
@@ -314,7 +312,9 @@ abstract class SmiteAPIHelper {
 		}
 		// Checking if a signature could be created
 		if(($signature = SmiteAPIHelper::getSignature("gettopranked")) === null) return false;
-		return SmiteAPIHelper::executeRequest("gettopranked".SmiteAPIHelper::$_format."/".SmiteAPIHelper::$_devId."/$signature/".SmiteAPIHelper::$_sessionId."/".((new DateTime("now", new DateTimeZone("UTC")))->format("YmdHis")));
+		// Sending request
+		$url = "gettopranked".SmiteAPIHelper::$_format."/".SmiteAPIHelper::$_devId."/$signature/".SmiteAPIHelper::$_session->id."/".SmiteAPIHelper::getNowTimestamp();
+		return SmiteAPIHelper::executeRequest($url);
 	}
 	
 	/*
@@ -330,7 +330,9 @@ abstract class SmiteAPIHelper {
 		}
 		// Checking if a signature could be created
 		if(($signature = SmiteAPIHelper::getSignature("gettopranked")) === null) return false;
-		return SmiteAPIHelper::executeRequest("gettopranked".SmiteAPIHelper::$_format."/".SmiteAPIHelper::$_devId."/$signature/".SmiteAPIHelper::$_sessionId."/".((new DateTime("now", new DateTimeZone("UTC")))->format("YmdHis")));
+		// Sending request
+		$url = "gettopranked".SmiteAPIHelper::$_format."/".SmiteAPIHelper::$_devId."/$signature/".SmiteAPIHelper::$_session->id."/".SmiteAPIHelper::getNowTimestamp();
+		return SmiteAPIHelper::executeRequest($url);
 	}
 	
 	public static function getGods($lang = 1) {
@@ -346,7 +348,9 @@ abstract class SmiteAPIHelper {
 		}
 		// Checking if a signature could be created
 		if(($signature = SmiteAPIHelper::getSignature("getgods")) === null) return false;
-		return SmiteAPIHelper::executeRequest("getgods".SmiteAPIHelper::$_format."/".SmiteAPIHelper::$_devId."/$signature/".SmiteAPIHelper::$_sessionId."/".((new DateTime("now", new DateTimeZone("UTC")))->format("YmdHis"))."/".$lang);
+		// Sending request
+		$url = "getgods".SmiteAPIHelper::$_format."/".SmiteAPIHelper::$_devId."/$signature/".SmiteAPIHelper::$_session->id."/".SmiteAPIHelper::getNowTimestamp()."/".$lang;
+		return SmiteAPIHelper::executeRequest($url);
 	}
 	
 	/*
@@ -394,7 +398,8 @@ abstract class SmiteAPIHelper {
 		if(!(SmiteAPIHelper::$_devId && SmiteAPIHelper::$_authKey && is_string($methodName)))
 			return null;
 		// Returning the signature
-		return md5(SmiteAPIHelper::$_devId.$methodName.SmiteAPIHelper::$_authKey.((new DateTime("now", new DateTimeZone("UTC")))->format("YmdHis")));
+		$toSign = SmiteAPIHelper::$_devId.$methodName.SmiteAPIHelper::$_authKey.SmiteAPIHelper::getNowTimestamp();
+		return md5($toSign);
 	}
 	
 	/*
@@ -407,7 +412,7 @@ abstract class SmiteAPIHelper {
 	 */
 	private static function createSessionIfNecessary($force = false) {
 		// Checking if a valid session already exists
-		if(!$force && SmiteAPIHelper::isSessionValid()) return true;
+		if(!$force && isset(SmiteAPIHelper::$_session) && SmiteAPIHelper::$_session->state === SmiteAPISession::SESSION_STATE_VALID) return true;
 		// Checking the credentials
 		if(!(SmiteAPIHelper::$_devId && SmiteAPIHelper::$_authKey)) {
 			trigger_error (__CLASS__."::".__FUNCTION__." (".__LINE__.") Smite API Credentials must be set before any request", E_USER_ERROR);
@@ -417,77 +422,35 @@ abstract class SmiteAPIHelper {
 		if(($signature = SmiteAPIHelper::getSignature("createsession")) === null) return false;
 		try {
 			// Forcing JSON for internal purpose
-			$url = "createsessionjson/".SmiteAPIHelper::$_devId."/$signature/".((new DateTime("now", new DateTimeZone("UTC")))->format("YmdHis"));
+			$url = "createsessionjson/".SmiteAPIHelper::$_devId."/$signature/".SmiteAPIHelper::getNowTimestamp();
 			$response = SmiteAPIHelper::executeRequest($url);
-			// Retrieve JSON data (JSON is GREAT)
-			// {"ret_msg":"[string]","session_id":"[hex number]","timestamp":"[bad-formatted timesatmp]"}
-//			if(SmiteAPIHelper::$_format === SmiteAPIHelper::SMITE_API_FORMAT_JSON) {
-			if(true) { // Don't mind that
-				$result = json_decode($response, true);
-				if(array_key_exists("ret_msg", $result))
-				{
-					if($result["ret_msg"] === "Approved" && array_key_exists("session_id", $result) && !empty($result["session_id"]) && array_key_exists("timestamp", $result) && !empty($result["timestamp"])) {
-						SmiteAPIHelper::$_sessionId = $result["session_id"];
-						SmiteAPIHelper::$_sessionTimeout = SmiteAPIHelper::generateTimeoutFromOddTimestamp($result["timestamp"]);
-						$status = true;
-					}
+			$result = json_decode($response, true);
+			if(array_key_exists("ret_msg", $result))
+			{
+				if($result["ret_msg"] === "Approved" && array_key_exists("session_id", $result) && !empty($result["session_id"]) && array_key_exists("timestamp", $result) && !empty($result["timestamp"])) {
+					SmiteAPIHelper::$_session = new SmiteAPISession($result["session_id"], SmiteAPIHelper::generateTimeoutFromOddTimestamp($result["timestamp"]));
+					$status = true;
 				}
-				else
-					trigger_error (__CLASS__."::".__FUNCTION__." (".__LINE__.") createsession web-service didn't return \"ret_msg\" attribute");
 			}
-			// Retrieve XML data (XML is EVIL, quit using that sh*t!)
-			// <Session><ret_msg>[string]</ret_msg><session_id>[hex number]</session_id><timestamp>[bad-formatted timestamp]</timestamp></Session>
-//			else {
-//				$indexes = Array();
-//				if(!(SmiteAPIHelper::parseXMLkthxbye($response, $result, $indexes)))
-//					trigger_error (__CLASS__."::".__FUNCTION__." (".__LINE__.") createsession web-service didn't return a valid XML file");
-//				else if(array_key_exists("ret_msg", $indexes))
-//				{
-//					$test = [
-//						$result[$indexes["ret_msg"][0]],
-//						$result[$indexes["session_id"][0]],
-//						$result[$indexes["timestamp"][0]]
-//					];
-//					if(
-//						($result[$indexes["ret_msg"][0]]["type"] === "complete" && $result[$indexes["ret_msg"][0]]["value"] === "Approved")
-//						&& ($result[$indexes["session_id"][0]]["type"] === "complete" && $result[$indexes["session_id"][0]]["value"])
-//						&& ($result[$indexes["timestamp"][0]]["type"] === "complete" && $result[$indexes["timestamp"][0]]["value"])
-//					) {
-//						SmiteAPIHelper::$_sessionId = $result[$indexes["session_id"][0]]["value"];
-//						SmiteAPIHelper::$_sessionTimeout = SmiteAPIHelper::generateTimeoutFromOddTimestamp($result[$indexes["timestamp"][0]]["value"]);
-//						$status = true;
-//					}
-//				}
-//				else
-//					trigger_error (__CLASS__."::".__FUNCTION__." (".__LINE__.") createsession web-service didn't return \"ret_msg\" attribute");
-//			}
+			else
+				trigger_error (__CLASS__."::".__FUNCTION__." (".__LINE__.") createsession web-service didn't return \"ret_msg\" attribute");
 		}
 		catch(Exception $e) {
-			trigger_error ($e->getFile()." (".$e->getLine().") Call to createsession web-service threw an Exception: (#".$e->getCode().") ".$e->getMessage());
+			trigger_error ($e->getFile()." (".$e->getLine().") Call to createsession web-service threw an Exception: (#".$e->getCode().") ".$e->getMessage(), E_USER_ERROR);
 		}
 		return isset($status) && $status === true;
 	}
 	
 	/*
-	 * XMLParser Helper 'cause I hate copy/pasting sh*tloads of code
-	 * Useless as long as createSessionIfNecessary forces JSON request
+	 * Generates a "now" timestamp formatted to be passed in Smite API requests
+	 * The valid format is YmdHis (for example 2010112080542) on UTC timezone
 	 * 
-	 * $xml: string containing XML data
-	 * 
-	 * Returns the data formatted as an array
+	 * Returns the generated timestamp
 	 */
-//	private static function parseXMLkthxbye($xml, &$result, &$indexes = Array()) {
-//		$xmlParser = xml_parser_create("UTF-8");
-//		xml_parser_set_option($xmlParser, XML_OPTION_TARGET_ENCODING, "UTF-8");
-//		xml_parser_set_option($xmlParser, XML_OPTION_CASE_FOLDING, 0);
-//		xml_parser_set_option($xmlParser, XML_OPTION_SKIP_WHITE, 1);
-//		$ok = xml_parse_into_struct($xmlParser, trim($xml), $result, $indexes) === 1;
-//		ob_start();
-//		return $ok;
-//		ob_end_clean();
-//		xml_parser_free($xmlParser);
-//		unset($xmlParser);
-//	}
+	private static function getNowTimestamp() {
+		$d = new DateTime("now", new DateTimeZone("UTC"));
+		return $d->format("YmdHis");
+	}
 	
 	/*
 	 * Timestamp converter Helper 'cause the timestamp returned by the web-services
@@ -499,16 +462,6 @@ abstract class SmiteAPIHelper {
 	 */
 	private static function generateTimeoutFromOddTimestamp($str) {
 		return DateTime::createFromFormat("n/j/Y g:i:s A", $str, new DateTimeZone("UTC"))->modify('+14 minute');
-	}
-	
-	/*
-	 * Checks whether the active session is valid, by checking the id
-	 * and the validity of the timeout
-	 * 
-	 * Returns a boolean indicating whether the session is valid or not
-	 */
-	private static function isSessionValid() {
-		return SmiteAPIHelper::$_sessionId && SmiteAPIHelper::$_sessionTimeout && SmiteAPIHelper::$_sessionTimeout > new DateTime("now", new DateTimeZone("UTC"));
 	}
 }
 
