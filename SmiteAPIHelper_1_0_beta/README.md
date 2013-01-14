@@ -79,7 +79,7 @@ The same principle applies for session saving, as you can see in the following p
 
 The _saveToCache_ function returns a boolean indicating if the session was successfully cached, allowing you to handle error cases.
 
-_Additional Note_: your cache file should be only readable by the server (chmod 0400) for security purposes.
+_Additional Note_: your cache file should be only writable/readable by the server (chmod 0600) for security purposes. If you can't do so, a chmod 0604 should do the trick.
 
 
 
