@@ -2,7 +2,7 @@
 
 
 _Changelog for SmiteAPIHelper_
-_by Chorizorro - 2013/01/12_
+_by Chorizorro - 2013/06/15_
 
 
 ##What is SmiteAPIHelper?##
@@ -14,6 +14,12 @@ For further information on SmiteAPIHelper, how it works and how to use it in you
 
  
 ##Changelog##
+
+###Version 1.0.1 - 2013/06/15###
+
+The use of an interface (JsonSerializable) in the session maganement made the module incompatible with PHP versions < 5.4.
+This was fixed to make SmiteAPIHelper compatible with versions from 5.2.0, as intended.
+
 
 ###Version 1.0 - 2013/01/12###
 
