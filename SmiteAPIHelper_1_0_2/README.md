@@ -1,8 +1,10 @@
 #SmiteAPIHelper#
 
 
-_Documentation for SmiteAPIHelper version 1.0.1_
+_Documentation for SmiteAPIHelper version 1.0.2_
 _by Chorizorro - 2013/06/15_
+
+_Updated by Kamal Osman - 2016/02/04_
 
 
 ##What is SmiteAPIHelper?##
@@ -50,6 +52,14 @@ By default, you will be sending requests for XML files. You can change this sett
 	SmiteAPIHelper::$_format = SmiteAPIHelper::SMITE_API_FORMAT_JSON;
 	// equivalent to
 	SmiteAPIHelper::$_format = "json";
+
+You will also by default be accessing the PC smite API. This can be changed by calling the setSystem method with "XBOX", it can also be set back by calling it with "PC". This function will return a boolean of true if the system is set to xbox and false if it is set to PC.
+	
+	//Xbox
+	$xbox = SmiteAPIHelper::setSystem("XBOX"); 
+	
+	//Set Back to PC
+	$xbox = SmiteAPIHelper::setSystem("PC"); 
 	
 Then, you can start using the provided functions to make requests to the Smite API.
 
@@ -78,6 +88,15 @@ The same principle applies for session saving, as you can see in the following p
 	SmiteAPIHelper::getSession()->saveToCache($cacheFile);
 
 The _saveToCache_ function returns a boolean indicating if the session was successfully cached, allowing you to handle error cases.
+
+__A Note on Multiple System Sessions:__ The Smite API requires you have seperate sessions for Xbox and PC, so if you will be switching access between the two systems you should consider storing the sessions in separate files. This will stop sessions from apearing invalid early and being replaced and will reduce the creation of new sessions. Here is an Example:
+
+	// Cache seperate sessions for each system
+	if ($xbox) {
+		$cacheFile = "session_cache_xbox.txt";
+	} else {
+		$cacheFile = "session_cache.txt";
+	}
 
 _Additional Note_: your cache file should be only readable by the server (chmod 0400) for security purposes.
 
