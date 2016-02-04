@@ -3,7 +3,7 @@
 
 _Changelog for SmiteAPIHelper_
 _by Chorizorro - 2013/06/15_
-
+_Updated by Kamal Osman - 2016/02/04_
 
 ##What is SmiteAPIHelper?##
 
@@ -14,6 +14,11 @@ For further information on SmiteAPIHelper, how it works and how to use it in you
 
  
 ##Changelog##
+
+###Version 1.0.2 - 2016/02/04###
+
+New function, setSystem added to allow users access the xbox smite api with the same helper functions. A new sample file was 
+also added to represent how this functionality would be used.
 
 ###Version 1.0.1 - 2013/06/15###
 
